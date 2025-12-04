@@ -1,0 +1,11 @@
+[project]
+name = "ocr-application"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "opencv-python>=4.12.0.88",
+    "pypdf2>=3.0.1",
+    "pytesseract>=0.3.13",
+]
