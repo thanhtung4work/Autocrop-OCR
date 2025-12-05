@@ -1,40 +1,57 @@
 import os
-import io
+
 import cv2
-import pytesseract
-from PyPDF2 import PdfMerger
+from easyocr import Reader
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import A4
 
 
-def perform_ocr(images_dir: str, output_path: str) -> None:
+def perform_ocr(images_dir: str, output_path: str, ocr_reader: Reader) -> None:
     """
-    Runs OCR on every image in a directory and merges all results into a single PDF.
-
-    Parameters:
-        images_dir (str): Directory containing image files.
-        output_path (str): Where the final merged PDF should be saved.
+    Create a PDF with the original image + invisible text layer
+    (similar to Tesseract PDF output).
     """
 
-    merger = PdfMerger()
+    
+    c = canvas.Canvas(output_path, pagesize=A4)
+    page_w, page_h = A4
 
-    # Sort files to maintain predictable order (optional but recommended)
-    image_files = sorted(os.listdir(images_dir))
-
-    for file_name in image_files:
+    for file_name in sorted(os.listdir(images_dir)):
         image_path = os.path.join(images_dir, file_name)
 
-        # Load the image
-        image = cv2.imread(image_path)
-        if image is None:
-            print(f"Skipping non-image or unreadable file: {file_name}")
+        img = cv2.imread(image_path)
+        if img is None:
+            print(f"Skipping unreadable file: {file_name}")
             continue
 
-        # Run OCR: Tesseract returns a PDF as bytes
-        pdf_bytes = pytesseract.image_to_pdf_or_hocr(image, extension='pdf')
-        pdf_stream = io.BytesIO(pdf_bytes)
+        h, w = img.shape[:2]
 
-        # Append to the PDF merger
-        merger.append(pdf_stream)
+        # Fit image to A4 page while keeping aspect ratio
+        scale_w, scale_h = page_w / w, page_h / h
+        new_w, new_h = int(w * scale_w), int(h * scale_h)
 
-    # Write final merged PDF
-    merger.write(output_path)
-    merger.close()
+        # Add the image
+        c.drawImage(
+            image_path,
+            0, page_h - new_h,
+            width=new_w,
+            height=new_h
+        )
+
+        # Run OCR
+        results = ocr_reader.readtext(img, detail=1)
+
+        # Draw invisible text layer
+        c.setFillColorRGB(1, 1, 1, alpha=0.01)  # Invisible text
+
+        for (bbox, text, conf) in results:
+            pt1, pt2, pt3, pt4 = bbox
+            x = pt1[0] * scale_w
+            y = page_h - (pt1[1] * scale_h)
+
+            # Draw invisible text so PDF is searchable
+            c.drawString(x, y, text)
+
+        c.showPage()
+
+    c.save()

@@ -1,13 +1,16 @@
 import os
-import cv2
 
-from src import detect_corners, perspective_crop, quantize_image
+import cv2
+import easyocr
+
+from src import detect_corners, perspective_crop, quantize_image, perform_ocr
 
 
 RAW_IMAGES_DIR = "data/raw_images"
 PROCESSED_DIR = "data/processed"
-OCR_OUTPUT = "final_document.pdf"
+OCR_OUTPUT = "data/final_document.pdf"
 
+reader = easyocr.Reader(['vi'])
 
 def process_images():
     # Ensure processed directory exists
@@ -28,12 +31,12 @@ def process_images():
         points = detect_corners(image)
 
         # 2. Apply perspective correction
-        cropped_img = perspective_crop(image, points, output_path)
+        cropped_img = perspective_crop(image, points)
 
         # 3. Apply color_quantization
         quantized_img = quantize_image(cropped_img, 4)
-        
         cv2.imwrite(output_path, quantized_img)
+        
 
         print(f"Processed {file_name}")
 
@@ -42,10 +45,10 @@ def main():
     print("Starting image preprocessing...")
     process_images()
 
-    # print("Running OCR on processed images...")
-    # perform_ocr(PROCESSED_DIR, OCR_OUTPUT)
+    print("Running OCR on processed images...")
+    perform_ocr(PROCESSED_DIR, OCR_OUTPUT, reader)
 
-    # print(f"OCR complete. Output saved to: {OCR_OUTPUT}")
+    print(f"OCR complete. Output saved to: {OCR_OUTPUT}")
 
 
 if __name__ == "__main__":
